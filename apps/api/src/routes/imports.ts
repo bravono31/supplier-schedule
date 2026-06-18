@@ -20,30 +20,41 @@ const UPLOADS_DIR = process.env["UPLOADS_DIR"] ?? path.join(process.cwd(), "uplo
 
 export async function importRoutes(app: FastifyInstance) {
   // POST /imports — upload image and trigger Gemini extraction
-  app.post<{ Body: { projectId: string } }>("/", async (req, reply) => {
-    const data = await req.file();
-    if (!data) {
-      return reply.status(400).send({ ok: false, error: "No file uploaded" });
+  app.post("/", async (req, reply) => {
+    // req.parts() iterates all multipart fields and files in stream order.
+    // req.body is NOT populated for multipart when attachFieldsToBody is off.
+    let fileBuffer: Buffer | undefined;
+    let originalFilename = "upload.jpg";
+    let projectId: string | undefined;
+
+    for await (const part of req.parts()) {
+      if (part.type === "file") {
+        fileBuffer = await part.toBuffer();
+        originalFilename = part.filename || "upload.jpg";
+      } else if (part.type === "field" && part.fieldname === "projectId") {
+        projectId = String(part.value);
+      }
     }
 
-    const projectId = (req.body as Record<string, string>)["projectId"];
+    if (!fileBuffer) {
+      return reply.status(400).send({ ok: false, error: "No file uploaded" });
+    }
     if (!projectId) {
       return reply.status(400).send({ ok: false, error: "projectId is required" });
     }
 
     // Save file to uploads directory
     await fs.mkdir(UPLOADS_DIR, { recursive: true });
-    const ext = path.extname(data.filename) || ".jpg";
+    const ext = path.extname(originalFilename) || ".jpg";
     const storedFilename = `${crypto.randomUUID()}${ext}`;
     const storagePath = path.join(UPLOADS_DIR, storedFilename);
-    const fileBuffer = await data.toBuffer();
     await fs.writeFile(storagePath, fileBuffer);
 
     // Save source image record
     const sourceImage = await prisma.sourceImage.create({
       data: {
         projectId,
-        filename: data.filename,
+        filename: originalFilename,
         storagePath: storedFilename,
       },
     });
@@ -53,7 +64,7 @@ export async function importRoutes(app: FastifyInstance) {
     try {
       events = await extractEventsFromImage({
         imagePath: storagePath,
-        mimeType: inferMimeType(data.filename),
+        mimeType: inferMimeType(originalFilename),
       });
     } catch (err) {
       app.log.error({ err }, "Gemini extraction failed");
