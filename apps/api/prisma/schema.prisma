@@ -35,7 +35,7 @@ model SourceImage {
   extractedAt DateTime?
   createdAt   DateTime  @default(now())
 
-  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   oemEvents OemEvent[]
 }
 
@@ -56,7 +56,7 @@ model OemEvent {
   updatedAt            DateTime @updatedAt
 
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  sourceImage SourceImage? @relation(fields: [sourceImageId], references: [id], onDelete: SetNull)
+  sourceImage SourceImage? @relation(fields: [sourceImageId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   links       Link[]       @relation("AnchorEvent")
 }
 
