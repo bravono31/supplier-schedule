@@ -1,5 +1,5 @@
 // ======================================================
-// Prisma schema — supplier-schedule
+// Prisma schema — supplier-schedule (SQL Server)
 // ======================================================
 
 generator client {
@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlserver"
   url      = env("DATABASE_URL")
 }
 
@@ -28,104 +28,74 @@ model Project {
 // ── SourceImage (uploaded Gantt images) ───────────────
 
 model SourceImage {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   projectId   String
   filename    String
-  storagePath String   // relative path under uploads/
+  storagePath String
   extractedAt DateTime?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
-  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  oemEvents  OemEvent[]
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  oemEvents OemEvent[]
 }
 
 // ── OemEvent (baseline events extracted from image) ───
 
 model OemEvent {
-  id                    String    @id @default(uuid())
-  projectId             String
-  name                  String
-  type                  OemEventType
-  startDate             DateTime  // stored as date-only (midnight UTC)
-  endDate               DateTime
-  isMilestone           Boolean   @default(false)
-  sourceImageId         String?
-  extractionConfidence  Float?    // 0.0 – 1.0
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id                   String   @id @default(uuid())
+  projectId            String
+  name                 String
+  /// "event" | "test" | "delivery"
+  type                 String
+  startDate            DateTime
+  endDate              DateTime
+  isMilestone          Boolean  @default(false)
+  sourceImageId        String?
+  extractionConfidence Float?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   sourceImage SourceImage? @relation(fields: [sourceImageId], references: [id], onDelete: SetNull)
   links       Link[]       @relation("AnchorEvent")
 }
 
-enum OemEventType {
-  event
-  test
-  delivery
-}
-
 // ── SupplierTask ───────────────────────────────────────
 
 model SupplierTask {
-  id           String       @id @default(uuid())
+  id           String   @id @default(uuid())
   projectId    String
   name         String
-  category     TaskCategory
+  /// "dev" | "order" | "doc" | "test_prep"
+  category     String
   startDate    DateTime
   endDate      DateTime
-  status       TaskStatus   @default(not_started)
-  driftWarning Boolean      @default(false)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  /// "not_started" | "in_progress" | "done" | "on_hold"
+  status       String   @default("not_started")
+  driftWarning Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  // Links where this task IS the dependent task
-  incomingLinks Link[] @relation("DependentTask")
-}
-
-enum TaskCategory {
-  dev
-  order
-  doc
-  test_prep
-}
-
-enum TaskStatus {
-  not_started
-  in_progress
-  done
-  on_hold
+  project       Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  incomingLinks Link[]  @relation("DependentTask")
 }
 
 // ── Link (dependency / anchor) ─────────────────────────
 
 model Link {
-  id             String         @id @default(uuid())
-  taskId         String         // the supplier task being scheduled
-  anchorKind     AnchorKind     // "event" or "task"
-  anchorEventId  String?        // set when anchorKind = event
-  anchorTaskId   String?        // set when anchorKind = task
-  dependencyType DependencyType
-  offsetDays     Int            @default(0)
-  isLinked       Boolean        @default(true)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id             String   @id @default(uuid())
+  taskId         String
+  /// "event" | "task"
+  anchorKind     String
+  anchorEventId  String?
+  anchorTaskId   String?
+  /// "FS" | "SS" | "EE" | "SE"
+  dependencyType String
+  offsetDays     Int      @default(0)
+  isLinked       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  task        SupplierTask  @relation("DependentTask", fields: [taskId], references: [id], onDelete: Cascade)
-  anchorEvent OemEvent?     @relation("AnchorEvent", fields: [anchorEventId], references: [id], onDelete: Cascade)
-  // Self-referencing anchor task handled via raw query to avoid circular FK issues
-}
-
-enum AnchorKind {
-  event
-  task
-}
-
-enum DependencyType {
-  FS // Finish-to-Start
-  SS // Start-to-Start
-  EE // End-to-End
-  SE // Start-to-End
+  task        SupplierTask @relation("DependentTask", fields: [taskId], references: [id], onDelete: Cascade)
+  anchorEvent OemEvent?    @relation("AnchorEvent", fields: [anchorEventId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
