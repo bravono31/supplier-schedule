@@ -8,7 +8,8 @@ import { prisma } from "../db.js";
 export async function projectRoutes(app: FastifyInstance) {
   // GET /projects
   app.get("/", async () => {
-    return prisma.project.findMany({ orderBy: { createdAt: "desc" } });
+    const data = await prisma.project.findMany({ orderBy: { createdAt: "desc" } });
+    return { ok: true, data };
   });
 
   // POST /projects

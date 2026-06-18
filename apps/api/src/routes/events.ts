@@ -15,10 +15,11 @@ export async function eventRoutes(app: FastifyInstance) {
   // GET /events?projectId=...
   app.get<{ Querystring: { projectId?: string } }>("/", async (req) => {
     const { projectId } = req.query;
-    return prisma.oemEvent.findMany({
+    const data = await prisma.oemEvent.findMany({
       ...(projectId ? { where: { projectId } } : {}),
       orderBy: { startDate: "asc" },
     });
+    return { ok: true, data };
   });
 
   // POST /events

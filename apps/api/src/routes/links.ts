@@ -6,9 +6,10 @@ export async function linkRoutes(app: FastifyInstance) {
   // GET /links?taskId=...
   app.get<{ Querystring: { taskId?: string } }>("/", async (req) => {
     const { taskId } = req.query;
-    return prisma.link.findMany({
+    const data = await prisma.link.findMany({
       ...(taskId ? { where: { taskId } } : {}),
     });
+    return { ok: true, data };
   });
 
   // POST /links

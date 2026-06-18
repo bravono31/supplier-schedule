@@ -9,11 +9,12 @@ export async function taskRoutes(app: FastifyInstance) {
   // GET /tasks?projectId=...
   app.get<{ Querystring: { projectId?: string } }>("/", async (req) => {
     const { projectId } = req.query;
-    return prisma.supplierTask.findMany({
+    const data = await prisma.supplierTask.findMany({
       ...(projectId ? { where: { projectId } } : {}),
       include: { incomingLinks: true },
       orderBy: { startDate: "asc" },
     });
+    return { ok: true, data };
   });
 
   // POST /tasks

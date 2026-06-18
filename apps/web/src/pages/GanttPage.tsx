@@ -81,7 +81,7 @@ export function GanttPage() {
   const load = useCallback(async () => {
     if (!projectId) return;
     const [proj, evs, tks] = await Promise.all([
-      api.get<{ data: Project }>(`/projects/${projectId}`).then((r) => r.data),
+      api.get<Project>(`/projects/${projectId}`),
       api.get<OemEvent[]>(`/events?projectId=${projectId}`),
       api.get<SupplierTask[]>(`/tasks?projectId=${projectId}`),
     ]);
