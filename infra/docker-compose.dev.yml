@@ -1,0 +1,36 @@
+version: "3.9"
+
+# ================================================================
+# Development override — run with:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# Or just use "pnpm dev" (no Docker, direct pnpm run) with a local Postgres.
+# ================================================================
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  api:
+    build: ~
+    image: ~
+    # Use host's node_modules for hot-reload (mount source)
+    command: pnpm dev
+    volumes:
+      - ../apps/api:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+    ports:
+      - "3001:3001"
+
+  web:
+    build: ~
+    image: ~
+    command: pnpm dev --host
+    volumes:
+      - ../apps/web:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"

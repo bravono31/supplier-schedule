@@ -1,0 +1,65 @@
+version: "3.9"
+
+# ================================================================
+# Supplier Schedule — Docker Compose (production / on-premise)
+#
+# Outbound firewall allowlist (apply at host/proxy level):
+#   ALLOW: generativelanguage.googleapis.com:443  (Gemini API, extraction only)
+#   BLOCK: all other outbound
+# ================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: supplier
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: supplier_schedule
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U supplier -d supplier_schedule"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Not exposed externally — only accessible within the compose network
+    expose:
+      - "5432"
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://supplier:${POSTGRES_PASSWORD}@postgres:5432/supplier_schedule
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      PORT: 3001
+      HOST: 0.0.0.0
+      CORS_ORIGIN: http://web:80
+      UPLOADS_DIR: /app/uploads
+      NODE_ENV: production
+    volumes:
+      - uploads_data:/app/uploads
+    expose:
+      - "3001"
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_BASE: ""
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-8080}:80"
+
+volumes:
+  postgres_data:
+  uploads_data:
